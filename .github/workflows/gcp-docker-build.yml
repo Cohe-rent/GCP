@@ -1,0 +1,30 @@
+name: Build and Push Docker Image to Google Artifact Registry
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v4
+
+    - name: Set up Google Cloud CLI
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Configure Docker to use gcloud
+      run: |
+        gcloud auth configure-docker us-central1-docker.pkg.dev
+
+    - name: Build Docker image
+      run: |
+        docker build -t us-central1-docker.pkg.dev/gke-demo-project-463510/gke-repo/hello-app:latest .
+
+    - name: Push Docker image to Artifact Registry
+      run: |
+        docker push us-central1-docker.pkg.dev/gke-demo-project-463510/gke-repo/hello-app:latest
