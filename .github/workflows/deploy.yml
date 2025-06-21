@@ -1,0 +1,54 @@
+name: Deploy to GKE
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: gke-demo-project-463510
+  REGION: us-central1
+  CLUSTER_NAME: gke-demo-cluster
+  REPO_NAME: gke-repo
+  IMAGE: us-central1-docker.pkg.dev/gke-demo-project-463510/gke-repo/hello-app
+
+jobs:
+  deploy:
+    name: Build & Deploy to GKE
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        token_format: access_token
+        workload_identity_provider: "projects/664648034200/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+        service_account: "gke-deployer@gke-demo-project-463510.iam.gserviceaccount.com"
+
+    - name: Set up gcloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: gke-demo-project-463510
+
+    - name: Configure Docker for Artifact Registry
+      run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+    - name: Build and push Docker image
+      run: |
+        docker build -t us-central1-docker.pkg.dev/gke-demo-project-463510/gke-repo/hello-app:$GITHUB_SHA .
+        docker push us-central1-docker.pkg.dev/gke-demo-project-463510/gke-repo/hello-app:$GITHUB_SHA
+
+    - name: Get GKE credentials
+      run: |
+        gcloud container clusters get-credentials gke-demo-cluster --region us-central1
+
+    - name: Deploy to GKE
+      run: |
+        kubectl set image deployment/hello-app hello-app=us-central1-docker.pkg.dev/gke-demo-project-463510/gke-repo/hello-app:$GITHUB_SHA
